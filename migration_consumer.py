@@ -157,7 +157,6 @@ async def perform_upsert(db,msg,producer):
         query = BASE_QUERY.format(TABLE_NAME,",".join(columns),",".join(values),on_conflict_action_str)
         # print(f"perform_upsert.query => {query}")
         await db.execute_raw_insert_query(query)
-        raise Exception("BHT WANTS EXCEPTION")
     except Exception as e:
         print(f"exception.perform_upsert => {e}")
         # print(f"exception.perform_upsert.query => {query}")
