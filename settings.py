@@ -12,7 +12,7 @@ write_db_url = getenv("write_db_url")
 TOPIC = getenv("TOPIC")
 GROUP_ID = getenv("GROUP_ID")
 CLIENT_ID = getenv("CLIENT_ID")
-KAFKA_BOOTSTRAP_SERVERS = getenv("KAFKA_BOOTSTRAP_SERVERS")
+KAFKA_BOOTSTRAP_SERVERS = getenv("KAFKA_BOOTSTRAP_SERVERS").split(",")
 TABLE_NAME = getenv("TABLE_NAME","case_links")
 
 PRODUCER_CLIENT_ID = getenv("PRODUCER_CLIENT_ID")
