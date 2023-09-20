@@ -1,7 +1,5 @@
 import pdb
 import json
-import psycopg2
-import psycopg2.extras
 import json
 from cg_kafka.consumer.base import BaseConsumer
 import asyncio
