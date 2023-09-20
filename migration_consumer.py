@@ -74,11 +74,13 @@ boolean_columns = {k if v in ("boolean",) else None for k,v in column_data_type_
 boolean_columns.remove(None)
 jsonb_columns = {k if v in ("jsonb",) else None for k,v in column_data_type_mapping.items()}
 jsonb_columns.remove(None)
-
+timestamp_columns = {k if v in ("timestamp without time zone",) else None for k,v in column_data_type_mapping.items()}
+timestamp_columns.remove(None)
 
 print(f"int_columns => {int_columns}")
 print(f"boolean_columns => {boolean_columns}")
 print(f"jsonb_columns => {jsonb_columns}")
+print(f"timestamp_columns => {jsonb_columns}")
 
 # special_handling_columns.add("created")
 # special_handling_columns.add("updated")
@@ -135,6 +137,7 @@ async def perform_upsert(write_cursor,msg):
             if column in jsonb_columns:
                 values.append(("'" + value + "'") if value else "null")
             elif column in ("updated","created"):
+                #this is to be fixed
                 values.append("now()")
             elif column in int_columns:
                 values.append(value if value is not None else "null")
