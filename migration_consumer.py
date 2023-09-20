@@ -85,38 +85,31 @@ print(f"timestamp_columns => {jsonb_columns}")
 # special_handling_columns.add("created")
 # special_handling_columns.add("updated")
 
-# ---------- HELPER FUNCTIONS -------------
 
-def form_db_connection():
-    write_db_connection = psycopg2.connect(
-        user=write_db_user,
-        password=write_db_password,
-        host=write_db_url,
-        port=write_db_port,
-        database=write_db_name)
-    write_cursor = write_db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    write_db_connection.autocommit = True
-    return write_db_connection,write_cursor
+#----------- DB CONNECTION---------------#
+import logging
 
+from cg_database import Postgres
 
-def check_and_form_db_connection(write_db_connection,write_cursor):
-    if write_db_connection.closed:
-        print(f"""
-        ############# write connection formed again #############
-        """)
-        write_db_connection = psycopg2.connect(
-        user=write_db_user,
-        password=write_db_password,
-        host=write_db_url,
-        port=write_db_port,
-        database=write_db_name)
-        write_cursor = write_db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        write_db_connection.autocommit = True
-    return write_db_connection,write_cursor
+async def init_db():
+    kwargs = {
+        "database": write_db_name,
+        "host": write_db_url,
+        "port": write_db_port,
+        "user": write_db_user,
+        "password": write_db_password,
+        "enable_read_replica": False,
+        "read_replica_host": "",
+        "read_replica_port": "",
+        "publish_dashboard_events": False,
+        "logging_handler": logging,
+    }
+    db = Postgres(**kwargs)
+    await db.connect()
+    return db
 
 
-
-async def perform_upsert(write_cursor,msg):
+async def perform_upsert(db,msg):
     print("perform_upsert")
     columns = []
     values = []
@@ -158,7 +151,7 @@ async def perform_upsert(write_cursor,msg):
 
         query = BASE_QUERY.format(",".join(columns),",".join(values),on_conflict_action_str)
         print(f"perform_upsert.query => {query}")
-        write_cursor.execute(query)
+        await db.execute_raw_insert_query(query)
     except Exception as e:
         print(f"exception.perform_upsert => {e}")
         print(f"exception.perform_upsert.query => {query}")
@@ -181,7 +174,7 @@ async def main():
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
     )
 
-    write_db_connection,write_cursor = form_db_connection()
+    db = await init_db()
     print("db initialised")
 
     await consumer.start()
@@ -193,8 +186,7 @@ async def main():
             print(f"main.msg : {msg}")
             msg = msg.value
             msg = msg['payload']
-            write_db_connection,write_cursor = check_and_form_db_connection(write_db_connection,write_cursor)
-            await perform_upsert(write_cursor,msg)
+            await perform_upsert(db,msg)
         except Exception as e:
             print(f"main.exception: {str(e)}")
 

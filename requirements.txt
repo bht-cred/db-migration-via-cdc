@@ -1,3 +1,4 @@
 git+ssh://git@github.com/credgenics/credgenics-kafka-library.git@v1.0.6
-psycopg2==2.9.7
+# psycopg2==2.9.7
+git+ssh://git@github.com/credgenics/credgenics-db-library.git@v0.3.9
 python-dotenv==0.15.0
