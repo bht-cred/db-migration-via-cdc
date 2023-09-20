@@ -3,8 +3,10 @@ import json
 import json
 import asyncio
 import traceback
-from settings import write_db_name,write_db_user,write_db_password,write_db_port,write_db_url,TOPIC,GROUP_ID,CLIENT_ID,KAFKA_BOOTSTRAP_SERVERS,TABLE_NAME
+from settings import write_db_name,write_db_user,write_db_password,write_db_port,write_db_url,TOPIC,GROUP_ID,CLIENT_ID,KAFKA_BOOTSTRAP_SERVERS,TABLE_NAME,PRODUCER_CLIENT_ID,DLQ_PRODUCER_TOPIC
 from aiokafka import AIOKafkaConsumer
+from aiokafka.producer.producer import AIOKafkaProducer
+
 import logging
 from cg_database import Postgres
 from datetime import datetime,timedelta
@@ -107,7 +109,7 @@ async def init_db():
     return db
 
 
-async def perform_upsert(db,msg):
+async def perform_upsert(db,msg,producer):
     print("perform_upsert")
     columns = []
     values = []
@@ -116,6 +118,7 @@ async def perform_upsert(db,msg):
         for column,value in msg.items():
 
             if value == "__debezium_unavailable_value" or column in ("audit_timestamp","audit_operation","__deleted"):
+                print(f"perform_upsert.__debezium_unavailable_value for id - {msg.get('id')} for column - {column}")
                 continue
 
             if column == "role":
@@ -152,14 +155,15 @@ async def perform_upsert(db,msg):
         values = [str(x) for x in values]
 
         query = BASE_QUERY.format(TABLE_NAME,",".join(columns),",".join(values),on_conflict_action_str)
-        print(f"perform_upsert.query => {query}")
+        # print(f"perform_upsert.query => {query}")
         await db.execute_raw_insert_query(query)
+        raise Exception("BHT WANTS EXCEPTION")
     except Exception as e:
         print(f"exception.perform_upsert => {e}")
-        print(f"exception.perform_upsert.query => {query}")
-        print(f"exception.perform_upsert.failed_for_payload => {msg}")
+        # print(f"exception.perform_upsert.query => {query}")
+        # print(f"exception.perform_upsert.failed_for_payload => {msg}")
         traceback.print_exc()
-
+        await producer.send(topic = DLQ_PRODUCER_TOPIC,value =msg)
 
 async def main():
     print("main")
@@ -182,13 +186,21 @@ async def main():
     await consumer.start()
     print("consumer started")
 
+    producer = AIOKafkaProducer(
+        client_id = PRODUCER_CLIENT_ID,
+        bootstrap_servers = KAFKA_BOOTSTRAP_SERVERS,
+        value_serializer=lambda x: json.dumps(x).encode("utf-8"),
+    )
+    await producer.start()
+    print("producer started")
+
     while True:
         try:
             msg = await consumer.getone()
             print(f"main.msg : {msg}")
             msg = msg.value
             msg = msg['payload']
-            await perform_upsert(db,msg)
+            await perform_upsert(db,msg,producer)
         except Exception as e:
             print(f"main.exception: {str(e)}")
 

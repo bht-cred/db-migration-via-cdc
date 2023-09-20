@@ -14,3 +14,6 @@ GROUP_ID = getenv("GROUP_ID")
 CLIENT_ID = getenv("CLIENT_ID")
 KAFKA_BOOTSTRAP_SERVERS = getenv("KAFKA_BOOTSTRAP_SERVERS")
 TABLE_NAME = getenv("TABLE_NAME","case_links")
+
+PRODUCER_CLIENT_ID = getenv("PRODUCER_CLIENT_ID")
+DLQ_PRODUCER_TOPIC = getenv("DLQ_PRODUCER_TOPIC","dlq-case_links_notice_to_recovery")
