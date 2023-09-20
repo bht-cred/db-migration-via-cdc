@@ -1,23 +1,26 @@
 import pdb
 import json
 import json
-from cg_kafka.consumer.base import BaseConsumer
 import asyncio
 import traceback
-from settings import write_db_name,write_db_user,write_db_password,write_db_port,write_db_url,TOPIC,GROUP_ID,CLIENT_ID,KAFKA_BOOTSTRAP_SERVERS
-import datetime
+from settings import write_db_name,write_db_user,write_db_password,write_db_port,write_db_url,TOPIC,GROUP_ID,CLIENT_ID,KAFKA_BOOTSTRAP_SERVERS,TABLE_NAME
 from aiokafka import AIOKafkaConsumer
+import logging
+from cg_database import Postgres
+from datetime import datetime,timedelta
 # -----------  CONSTANT  ------------
 
 BASE_QUERY = """
-INSERT INTO public.case_links({})
+INSERT INTO public.{}({})
 VALUES ({})
 ON CONFLICT (id) DO UPDATE
 SET {};
 """
+ist_offset = timedelta(minutes=30,hours=5)
 
 global write_cursor
 global write_db_connection
+
 
 column_data_type_mapping = {
     'id': 'integer',
@@ -85,9 +88,6 @@ print(f"timestamp_columns => {jsonb_columns}")
 
 
 #----------- DB CONNECTION---------------#
-import logging
-
-from cg_database import Postgres
 
 async def init_db():
     kwargs = {
@@ -128,8 +128,12 @@ async def perform_upsert(db,msg):
             if column in jsonb_columns:
                 values.append(("'" + value + "'") if value else "null")
             elif column in ("updated","created"):
-                #this is to be fixed
-                values.append("now()")
+                if value:
+                    value = datetime.fromtimestamp(value/1000000)
+                    value = value - ist_offset
+                    values.append("'" + str(value) + "'")
+                else:
+                    value.append("null")
             elif column in int_columns:
                 values.append(value if value is not None else "null")
             elif column in boolean_columns:
@@ -147,7 +151,7 @@ async def perform_upsert(db,msg):
         # values ->
         values = [str(x) for x in values]
 
-        query = BASE_QUERY.format(",".join(columns),",".join(values),on_conflict_action_str)
+        query = BASE_QUERY.format(TABLE_NAME,",".join(columns),",".join(values),on_conflict_action_str)
         print(f"perform_upsert.query => {query}")
         await db.execute_raw_insert_query(query)
     except Exception as e:
